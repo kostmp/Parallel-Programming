@@ -65,19 +65,6 @@ uint32_t *read_matrix_market (string file, int &n, int &nzero, uint32_t *rows, u
 			break;
 		}
 	}
-	cout << M << " " << N << " " << nzero << endl;
-	//the matrix must be square
-
-	if (M == N) {
-		n = N;
-	} else {
-		cout << "The M and N must be the same size!" << endl;
-		exit(0);
-	}
-
-	cout << "The number x is: " << M << endl;
-	cout << "the number y is: " << N << endl;
-	cout << "The not zero values are: " << nzero << endl;
 	//reads the matrix market in CSC and COO format
 	//CSC format: rows, cols, indeces
 	indeces = (uint32_t *)malloc(1*sizeof(uint32_t));
