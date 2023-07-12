@@ -116,7 +116,7 @@ void sort_cscrows(uint32_t *cols,int nzero, uint32_t *rows,uint32_t *csccols, in
 	}
 }
 
-int count_triangles(uint32_t *cscrows,uint32_t *csccols,int n, int nzero,int *c3) {
+int count_triangles(uint32_t *cscrows,uint32_t *csccols,int n, int nzero) {
 
 	int num_triangles = 0;
 	uint32_t i,j,k,a,b,c;
@@ -127,9 +127,6 @@ int count_triangles(uint32_t *cscrows,uint32_t *csccols,int n, int nzero,int *c3
 				k = cscrows[b];
 				for (a = csccols[k]; a < csccols[k+1]; a++) {
 					if (cscrows[a] == i) {
-						c3[i]++;
-						c3[j]++;
-						c3[k]++;
 						num_triangles++;
 					}
 				}
@@ -159,9 +156,8 @@ int main(int argc, char **argv) {
 	}
 	read_matrix_market(file,n,nzero,rows,cols,csccols);
 	sort_cscrows(cols,2*nzero,rows,csccols,n,cscrows);
-	int c3[n];
 	auto start = high_resolution_clock::now();
-	triangles = count_triangles(cscrows,csccols,n,2*nzero,c3);
+	triangles = count_triangles(cscrows,csccols,n,2*nzero);
 	auto end = high_resolution_clock::now();
 	cout << triangles << endl;
 	double execution_time = duration_cast<nanoseconds>(end - start).count();
