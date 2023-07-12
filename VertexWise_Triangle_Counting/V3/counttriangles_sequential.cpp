@@ -5,6 +5,7 @@
 #include <string>
 #include <regex>
 
+
 using namespace std;
 using namespace std::chrono;
 
@@ -18,7 +19,7 @@ void open_matrix_market(string file, int &n, int &nzero) {
 		std::smatch matches;
 		//if it is a comment, pass
 		if (line[0] == '%') {
-			cout << line << endl;
+			//cout << line << endl;
 		} else {
 			//the regular expression must spot the %d %d %d pattern for number of rows, number of columns
 			//and number of not zero values
@@ -43,7 +44,7 @@ void open_matrix_market(string file, int &n, int &nzero) {
 }
 
 
-uint32_t *read_matrix_market (string file, int &n, int &nzero, uint32_t *rows, uint32_t *cols) {
+void read_matrix_market (string file, int &n, int &nzero, uint32_t *rows, uint32_t *cols, uint32_t *csccols) {
 	uint32_t M, N,*indeces;
 	int i,length = 1;
 	std::ifstream reader(file);
@@ -54,7 +55,7 @@ uint32_t *read_matrix_market (string file, int &n, int &nzero, uint32_t *rows, u
 		std::smatch matches;
 		//if it is a comment, pass
 		if (line[0] == '%') {
-			cout << line << endl;
+//			cout << line << endl;
 		} else {
 			//the regular expression must spot the %d %d %d pattern for number of rows, number of columns
 			//and number of not zero values
@@ -66,7 +67,6 @@ uint32_t *read_matrix_market (string file, int &n, int &nzero, uint32_t *rows, u
 			break;
 		}
 	}
-	cout << M << " " << N << " " << nzero << endl;
 	//the matrix must be square
 
 	if (M == N) {
@@ -76,37 +76,68 @@ uint32_t *read_matrix_market (string file, int &n, int &nzero, uint32_t *rows, u
 		exit(0);
 	}
 
-	cout << "The number x is: " << M << endl;
-	cout << "the number y is: " << N << endl;
-	cout << "The not zero values are: " << nzero << endl;
-	//reads the matrix market in CSC and COO format
-	//CSC format: rows, cols, indeces
-	indeces = (uint32_t *)malloc(1*sizeof(uint32_t));
-//	rows = new uint32_t[nzero];
-//	cols = new uint32_t[nzero];
 
-	for (i=1;i <= nzero;i++) {
+
+	for (i=1;i <= 2*nzero;i++) {
 		reader >> M >> N;
 		rows[i-1] = M;
 		cols[i-1] = N;
-		if (i == 1) {
-			indeces[0] = N;
-			continue;
-		}
-		if (cols[i-2] != N) {
-			length = length + 1;
-			indeces = (uint32_t *)realloc(indeces,length*sizeof(uint32_t));
-			indeces[length-1] = i;
-		}
+		++i;
+		rows[i-1] = N;
+		cols[i-1] = M;
 	}
 
-	for (int h=0;h<nzero;h++) {
-		cout << rows[h] <<" " << cols[h] << endl;
-
-
+	for(int a=0;a<2*nzero;a++) {
+		csccols[cols[a] - 1]++;
 	}
+
+	int summ = 0;
+	for (int k = 0; k < n; k++) {
+        	uint32_t t = csccols[k];
+        	csccols[k] = summ;
+        	summ += t;
+    	}
+	csccols[n] = 2*nzero;
 	reader.close();
-	return indeces;
+
+}
+
+void sort_cscrows(uint32_t *cols,int nzero, uint32_t *rows,uint32_t *csccols, int n,uint32_t *cscrows) {
+	//create a copy of csccols
+	uint32_t j;
+	uint32_t *csc = new uint32_t[n+1];
+	for(int i=0;i<n+1;i++) {
+		csc[i] = csccols[i];
+	}
+	for(int i=0;i<nzero;i++) {
+		j = csc[cols[i]-1];
+		cscrows[j] = rows[i] - 1;
+		++csc[cols[i]-1];
+	}
+}
+
+int count_triangles(uint32_t *cscrows,uint32_t *csccols,int n, int nzero,int *c3) {
+
+	int num_triangles = 0;
+	uint32_t i,j,k,a,b,c;
+	for (i=0;i < n; i++) {
+		for(c=csccols[i]; c < csccols[i+1];c++) {
+			j = cscrows[c];
+			for (b=csccols[j];b < csccols[j+1];b++) {
+				k = cscrows[b];
+				for (a = csccols[k]; a < csccols[k+1]; a++) {
+					if (cscrows[a] == i) {
+						c3[i]++;
+						c3[j]++;
+						c3[k]++;
+						num_triangles++;
+					}
+				}
+			}
+		}
+	}
+
+	return num_triangles/6;
 }
 
 int main(int argc, char **argv) {
@@ -115,46 +146,24 @@ int main(int argc, char **argv) {
 		cout << "Please give the input .mtx file." << endl;
 		return 1;
 	}
-	int a,b,c,n, nzero;
+	int a,b,c,n, nzero,triangles;
 	string file = argv[1];
 	open_matrix_market(file,n,nzero);
-	uint32_t *indeces=NULL ,i ,j ,k;
-	uint32_t *rows = new uint32_t[nzero];
-	uint32_t *cols = new uint32_t[nzero];
-	indeces = read_matrix_market(file,n,nzero,rows,cols);
+	uint32_t i ,j ,k;
+	uint32_t *rows = new uint32_t[2*nzero];
+	uint32_t *cols = new uint32_t[2*nzero];
+	uint32_t *csccols = new uint32_t[n+1];
+	uint32_t *cscrows = new uint32_t[2*nzero];
+	for(a=0;a<n+1;a++) {
+		csccols[a] = 0;
+	}
+	read_matrix_market(file,n,nzero,rows,cols,csccols);
+	sort_cscrows(cols,2*nzero,rows,csccols,n,cscrows);
 	int c3[n];
-	for (a = 0;a < n ; a++) {
-		c3[a] = 0;
-	}
-	cout << nzero << endl;
 	auto start = high_resolution_clock::now();
-	for (a=0;a < nzero;a++) {
-		i = rows[a];
-		j = cols[a];
-		for (b=a+1; b<nzero ;b++) {
-			if (i == cols[b]) {
-				k = rows[b];
-				for(c= 0;c < nzero;c++) {
-					if (k == rows[c] && j == cols[c]) {
-						c3[i-1] = c3[i-1] + 1;
-						c3[j-1] = c3[j-1] + 1;
-						c3[k-1] = c3[k-1] + 1;
-						continue;
-					}
-					if (k == cols[c] && j == rows[c]) {
-						c3[i-1] = c3[i-1] + 1;
-						c3[j-1] = c3[j-1] + 1;
-						c3[k-1] = c3[k-1] + 1;
-					}
-				}
-			}
-		}
-	}
+	triangles = count_triangles(cscrows,csccols,n,2*nzero,c3);
 	auto end = high_resolution_clock::now();
-	for (a=0;a<n;a++) {
-		cout << "The " << a+1 << " node has: " << c3[a] << " triangles." << endl;
-	}
-
+	cout << triangles << endl;
 	double execution_time = duration_cast<nanoseconds>(end - start).count();
 	execution_time *= 1e-9;
 	cout << "Time taken for execution in seconds: " << execution_time;
@@ -163,5 +172,3 @@ int main(int argc, char **argv) {
 
 	return 0;
 }
-
-
