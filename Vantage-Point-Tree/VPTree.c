@@ -189,8 +189,8 @@ vptree * buildvp(double **X, int n, int d) {
 int main() {
 
 	double **X;
-	int n = 100000,i,j;
-	int d = 2;
+	int n = 100000,i,j; //works for any n
+	int d = 2; //works for any d
 	clock_t start, end;
 	X = (double**)malloc(n *sizeof(double*));
 	for (i=0;i < n;i++) {
